@@ -4,10 +4,10 @@ import base64
 import logging
 import secrets
 import string
+from urllib.parse import urlparse
 
 import requests
 import urllib3
-from urllib.parse import urlparse
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
@@ -118,11 +118,15 @@ def check_url_reputation(url_input):
                 candidate = line.strip().lower()
                 if not candidate or candidate.startswith("#"):
                     continue
-                parsed_candidate = urlparse(candidate if "://" in candidate else f"http://{candidate}")
+                parsed_candidate = urlparse(
+                    candidate if "://" in candidate else f"http://{candidate}"
+                )
                 blocked_host = (parsed_candidate.hostname or candidate).strip(".")
                 if not blocked_host:
                     continue
-                if input_host == blocked_host or input_host.endswith(f".{blocked_host}"):
+                if input_host == blocked_host or input_host.endswith(
+                    f".{blocked_host}"
+                ):
                     if line and line in url_input:
                         return False
         return True

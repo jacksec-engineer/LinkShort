@@ -8,14 +8,8 @@ from os import environ, path
 import bleach
 import turso_mgmt as db
 import url_mgmt as urls
-from flask import (
-    Flask,
-    abort,
-    make_response,
-    render_template,
-    request,
-    send_from_directory,
-)
+from flask import (Flask, abort, make_response, render_template, request,
+                   send_from_directory)
 
 application = Flask(__name__)
 
@@ -117,8 +111,10 @@ def input_url():
                             # 500 error returned for database failure
                             abort(HTTPStatus.INTERNAL_SERVER_ERROR)
                         else:
-		                    # Defensive fallback for unexpected db response shape.
-                            logging.error("insert_link failed with unexpected message=None")
+                            # Defensive fallback for unexpected db response shape.
+                            logging.error(
+                                "insert_link failed with unexpected message=None"
+                            )
                             abort(HTTPStatus.INTERNAL_SERVER_ERROR)
                             return None
 
