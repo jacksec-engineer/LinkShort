@@ -138,8 +138,9 @@ def input_url():
 
         case _:
             # Catch all to return 500 error for any unexpected cases
-            abort(HTTPStatus.INTERNAL_SERVER_ERROR)
-            return None
+            return internal_server_error(HTTPStatus.INTERNAL_SERVER_ERROR)
+
+    return internal_server_error(HTTPStatus.INTERNAL_SERVER_ERROR)
 
 
 @application.route("/<arg>/stats")
