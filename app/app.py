@@ -105,15 +105,20 @@ def input_url():
                     while result is False:
                         if message == "non-unique":
                             logging.info("Regenerating link path")
-                            # Non-unique hashsum, regenrate
+                            # Non-unique hashsum, regenerate
                             linkpath = urls.generate_path()
                             hashsum = hashlib.sha256(
                                 linkpath.encode("utf-8")
                             ).hexdigest()
+                            ciphertext, salt = urls.encrypt_url(user_input, linkpath)
                             result, message = db.insert_link(hashsum, ciphertext, salt)
 
                         elif message is not None:
                             # 500 error returned for database failure
+                            abort(HTTPStatus.INTERNAL_SERVER_ERROR)
+                        else:
+		                    # Defensive fallback for unexpected db response shape.
+                            logging.error("insert_link failed with unexpected message=None")
                             abort(HTTPStatus.INTERNAL_SERVER_ERROR)
                             return None
 
@@ -162,7 +167,6 @@ def show_stats(arg):
         )
     else:
         abort(HTTPStatus.NOT_FOUND)
-        return None
 
 
 @application.route("/<arg>")
