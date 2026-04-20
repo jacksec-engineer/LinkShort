@@ -115,6 +115,7 @@ def input_url():
                         elif message is not None:
                             # 500 error returned for database failure
                             abort(HTTPStatus.INTERNAL_SERVER_ERROR)
+                            return None
 
                 # Return link page with URL if successful
                 resp = make_response(
