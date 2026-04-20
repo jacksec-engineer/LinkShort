@@ -4,6 +4,7 @@ import base64
 import logging
 import secrets
 import string
+from urllib.parse import urlparse
 
 import requests
 import urllib3
@@ -84,7 +85,7 @@ def check_url_whitespace(url_input):
 def check_url_security(url_input):
     """Perform checks to ensure input is in expected format"""
     try:
-        if url_input[:5] == "https":
+        if url_input.startswith("https://"):
             return True
         return False
     except Exception as e:
@@ -95,12 +96,18 @@ def check_url_security(url_input):
 def check_url_reputation(url_input):
     """Compile list of bad sites, and compare to input"""
     try:
+        parsed_input = urlparse(url_input)
+        input_host = (parsed_input.hostname or "").lower()
+        if not input_host:
+            return False
         with urllib3.PoolManager() as http:
             URL1 = "https://raw.githubusercontent.com/Spam404/lists/master/main-blacklist.txt"
             URL2 = "https://raw.githubusercontent.com/stamparm/blackbook/refs/heads/master/blackbook.txt"
 
-            response1 = http.request("GET", URL1)
-            response2 = http.request("GET", URL2)
+            timeout = urllib3.Timeout(connect=3.0, read=5.0)
+
+            response1 = http.request("GET", URL1, timeout=timeout)
+            response2 = http.request("GET", URL2, timeout=timeout)
 
             text1 = response1.data.decode("utf-8")
             text2 = response2.data.decode("utf-8")
@@ -108,8 +115,20 @@ def check_url_reputation(url_input):
             blacklist = text1 + text2
 
             for line in blacklist.splitlines():
-                if line and line in url_input:
-                    return False
+                candidate = line.strip().lower()
+                if not candidate or candidate.startswith("#"):
+                    continue
+                parsed_candidate = urlparse(
+                    candidate if "://" in candidate else f"http://{candidate}"
+                )
+                blocked_host = (parsed_candidate.hostname or candidate).strip(".")
+                if not blocked_host:
+                    continue
+                if input_host == blocked_host or input_host.endswith(
+                    f".{blocked_host}"
+                ):
+                    if line and line in url_input:
+                        return False
         return True
     except Exception as e:
         logging.error("Error on check_url_reputation: %s", e)
@@ -136,5 +155,5 @@ def validate_turnstile(token, secret, remoteip=None):
         response.raise_for_status()
         return response.json()
     except requests.RequestException as e:
-        print(f"Turnstile validation error: {e}")
+        logging.error("Turnstile validation error: %s", e)
         return {"success": False, "error-codes": ["internal-error"]}
