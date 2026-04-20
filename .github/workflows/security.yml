@@ -191,7 +191,8 @@ jobs:
         with:
           sarif_file: results.sarif
 
-  comment:
+  results:
+    name: Results
     needs: [changes, semgrep, codeql, container-scan]
     if: github.event_name == 'pull_request' && always()
     runs-on: blacksmith-4vcpu-ubuntu-2404
