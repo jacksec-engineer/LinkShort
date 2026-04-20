@@ -202,7 +202,7 @@ jobs:
       actions: read
       checks: read
     steps:
-      - name: Fetch findings and post comment
+      - name: Fetch findings
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
