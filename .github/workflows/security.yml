@@ -185,7 +185,6 @@ jobs:
           only-severities: critical,high,medium
           only-fixed: true
           sarif-file: results.sarif
-          write-comment: true
           github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Upload SARIF results
         uses: github/codeql-action/upload-sarif@95e58e9a2cdfd71adc6e0353d5c52f41a045d225 # v4.35.2
