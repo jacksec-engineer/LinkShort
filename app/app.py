@@ -187,8 +187,7 @@ def redirect_url(arg):
             hashsum = hashlib.sha256(requested_path.encode("utf-8")).hexdigest()
             url_bytes, salt_bytes = db.get_link(hashsum)
             if url_bytes is False:
-                abort(HTTPStatus.NOT_FOUND)
-                return None
+                return page_not_found(HTTPStatus.NOT_FOUND)
             else:
                 db.increment_click(hashsum)
                 newlink = urls.decrypt_url(
@@ -198,6 +197,8 @@ def redirect_url(arg):
                     render_template("redirect.html", link=newlink, tld=tld, cdn=cdn)
                 )
                 return resp
+
+    return internal_server_error(HTTPStatus.INTERNAL_SERVER_ERROR)
 
 
 @application.after_request
