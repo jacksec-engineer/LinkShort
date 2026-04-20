@@ -185,14 +185,14 @@ jobs:
           only-severities: critical,high,medium
           only-fixed: true
           sarif-file: results.sarif
-          write-comment: true
           github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Upload SARIF results
         uses: github/codeql-action/upload-sarif@95e58e9a2cdfd71adc6e0353d5c52f41a045d225 # v4.35.2
         with:
           sarif_file: results.sarif
 
-  comment:
+  results:
+    name: Results
     needs: [changes, semgrep, codeql, container-scan]
     if: github.event_name == 'pull_request' && always()
     runs-on: blacksmith-4vcpu-ubuntu-2404
@@ -202,7 +202,7 @@ jobs:
       actions: read
       checks: read
     steps:
-      - name: Fetch findings and post comment
+      - name: Fetch findings
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
