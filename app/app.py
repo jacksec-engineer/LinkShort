@@ -11,7 +11,6 @@ import url_mgmt as urls
 from flask import (
     Flask,
     abort,
-    jsonify,
     make_response,
     render_template,
     request,
@@ -139,6 +138,7 @@ def input_url():
         case _:
             # Catch all to return 500 error for any unexpected cases
             abort(HTTPStatus.INTERNAL_SERVER_ERROR)
+            return None
 
 
 @application.route("/<arg>/stats")
@@ -160,6 +160,7 @@ def show_stats(arg):
         )
     else:
         abort(HTTPStatus.NOT_FOUND)
+        return None
 
 
 @application.route("/<arg>")
@@ -187,6 +188,7 @@ def redirect_url(arg):
             url_bytes, salt_bytes = db.get_link(hashsum)
             if url_bytes is False:
                 abort(HTTPStatus.NOT_FOUND)
+                return None
             else:
                 db.increment_click(hashsum)
                 newlink = urls.decrypt_url(
@@ -196,7 +198,6 @@ def redirect_url(arg):
                     render_template("redirect.html", link=newlink, tld=tld, cdn=cdn)
                 )
                 return resp
-            abort(HTTPStatus.NOT_FOUND)
 
 
 @application.after_request
@@ -281,8 +282,6 @@ def internal_server_error(error):
 
 # Flask main function
 if __name__ == "__main__":
-    import logging
-
     logging.basicConfig(level=logging.INFO)
 
     application.run(host="0.0.0.0", port=8080, debug=False)

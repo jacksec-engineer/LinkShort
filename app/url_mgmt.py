@@ -75,7 +75,7 @@ def check_url_whitespace(url_input):
         for i in url_input:
             if i.isspace():
                 return False
-            return True
+        return True
     except Exception as e:
         logging.error("Error on check_url_whitespace: %s", e)
         return False
