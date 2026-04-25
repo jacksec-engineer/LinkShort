@@ -146,7 +146,7 @@ jobs:
           severity: CRITICAL,HIGH,MEDIUM
           format: sarif
           output: results.sarif
-      - name: Run Docker Scout Scan
+      - name: Run Scout Scan
         if: matrix.scanner.id == 'scout'
         uses: docker/scout-action@bacf462e8d090c09660de30a6ccc718035f961e3 # v1.20.4
         with:
@@ -155,6 +155,7 @@ jobs:
           only-severities: critical,high,medium
           only-fixed: true
           sarif-file: results.sarif
+          write-comment: false
           github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Upload SARIF results
         uses: github/codeql-action/upload-sarif@95e58e9a2cdfd71adc6e0353d5c52f41a045d225 # v4.35.2
