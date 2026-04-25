@@ -13,35 +13,7 @@ env:
   IMAGE_NAME: linkshort
 
 jobs:
-  changes:
-    name: Detect Changes
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    permissions:
-      contents: read
-      pull-requests: read
-    outputs:
-      code: ${{ steps.filter.outputs.code }}
-      container: ${{ steps.filter.outputs.container }}
-      scans_ran: ${{ steps.filter.outputs.code == 'true' || steps.filter.outputs.container == 'true' }}
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
-        id: filter
-        with:
-          filters: |
-            code:
-              - 'app/**'
-              - 'requirements.txt'
-              - '.github/workflows/security.yml'
-            container:
-              - 'Dockerfile'
-              - 'docker-compose.yaml'
-              - '.dockerignore'
-              - 'requirements.txt'
-              - '.github/workflows/security.yml'
-
   semgrep:
-    needs: changes
     name: Analyze (semgrep)
     runs-on: blacksmith-4vcpu-ubuntu-2404
     permissions:
@@ -52,7 +24,7 @@ jobs:
       SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
     container:
       image: semgrep/semgrep
-    if: github.actor != 'dependabot[bot]' && needs.changes.outputs.code == 'true'
+    if: github.actor != 'dependabot[bot]'
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - run: semgrep ci --sarif --output semgrep.sarif
@@ -63,10 +35,9 @@ jobs:
         if: always()
 
   codeql:
-    needs: changes
     name: Analyze (${{ matrix.language }})
     runs-on: blacksmith-4vcpu-ubuntu-2404
-    if: needs.changes.outputs.code == 'true' && github.actor != 'dependabot[bot]'
+    if: github.actor != 'dependabot[bot]'
     permissions:
       security-events: write
       packages: read
@@ -94,10 +65,9 @@ jobs:
           category: "/language:${{matrix.language}}"
 
   container:
-    needs: changes
     name: Build and Push
     runs-on: blacksmith-4vcpu-ubuntu-2404
-    if: needs.changes.outputs.container == 'true' && github.actor != 'dependabot[bot]'
+    if: github.actor != 'dependabot[bot]'
     permissions:
       contents: read
       packages: write
@@ -123,8 +93,8 @@ jobs:
           sbom: true
 
   container-scan:
-    needs: [changes, container]
-    if: needs.changes.outputs.container == 'true' && github.actor != 'dependabot[bot]'
+    needs: [container]
+    if: github.actor != 'dependabot[bot]'
     name: ${{ matrix.scanner.name }} Scan
     runs-on: blacksmith-4vcpu-ubuntu-2404
     strategy:
@@ -176,7 +146,7 @@ jobs:
           severity: CRITICAL,HIGH,MEDIUM
           format: sarif
           output: results.sarif
-      - name: Run Docker Scout Scan
+      - name: Run Scout Scan
         if: matrix.scanner.id == 'scout'
         uses: docker/scout-action@bacf462e8d090c09660de30a6ccc718035f961e3 # v1.20.4
         with:
@@ -185,6 +155,7 @@ jobs:
           only-severities: critical,high,medium
           only-fixed: true
           sarif-file: results.sarif
+          write-comment: false
           github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Upload SARIF results
         uses: github/codeql-action/upload-sarif@95e58e9a2cdfd71adc6e0353d5c52f41a045d225 # v4.35.2
@@ -193,7 +164,7 @@ jobs:
 
   results:
     name: Results
-    needs: [changes, semgrep, codeql, container-scan]
+    needs: [semgrep, codeql, container-scan]
     if: github.event_name == 'pull_request' && always()
     runs-on: blacksmith-4vcpu-ubuntu-2404
     permissions:
@@ -275,8 +246,7 @@ jobs:
             gh pr comment "$PR" --repo "$REPO" --body-file /tmp/comment-body.md || true
           fi
 
-          scans_ran="${{ needs.changes.outputs.scans_ran }}"
-          if [[ "$scans_ran" == "true" && "$total" -gt 0 ]]; then
+          if [[ "$total" -gt 0 ]]; then
             echo "::error::$total open security finding(s) found. Any findings must be fixed or justified, see repository PR guidance for details https://github.com/jackseceng/LinkShort?tab=contributing-ov-file#making-prs"
             exit 1
           fi
