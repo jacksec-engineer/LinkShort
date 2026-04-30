@@ -5,8 +5,8 @@ from datetime import datetime
 from os import environ
 from re import search
 
-from dotenv import load_dotenv
 import turso.sync
+from dotenv import load_dotenv
 
 load_dotenv()
 
