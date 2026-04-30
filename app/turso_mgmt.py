@@ -6,7 +6,7 @@ from os import environ
 from re import search
 
 from dotenv import load_dotenv
-from libsql import connect
+import turso.sync
 
 load_dotenv()
 
@@ -17,8 +17,8 @@ DB_PATH = "/tmp/urls.db"
 
 def _create_connection():
     """Creates and returns a new database connection."""
-    conn = connect(DB_PATH, sync_url=url, auth_token=auth_token)
-    conn.sync()
+    conn = turso.sync.connect(DB_PATH, remote_url=url, auth_token=auth_token)
+    conn.pull()
     return conn
 
 
