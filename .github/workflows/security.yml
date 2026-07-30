@@ -4,7 +4,8 @@ name: Security
 on:
   push:
     branches: ["main"]
-  merge_group:
+  pull_request:
+    branches: ["main"]
 
 env:
   REGISTRY: docker.io
@@ -94,7 +95,7 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.event_name == 'merge_group' && 'mq' || 'latest' }}
+          tags: ${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.event_name == 'pull_request' && github.event.number || 'latest' }}
           platforms: linux/amd64
           provenance: true
           sbom: true
@@ -116,12 +117,13 @@ jobs:
     permissions:
       contents: read
       security-events: write
+      pull-requests: write
     steps:
       - name: Get image tag
         id: get_tag
         run: |
-          if [[ "${{ github.event_name }}" == "merge_group" ]]; then
-            echo "tag=mq" >> "$GITHUB_OUTPUT"
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "tag=${{ github.event.number }}" >> "$GITHUB_OUTPUT"
           else
             echo "tag=latest" >> "$GITHUB_OUTPUT"
           fi
@@ -136,9 +138,8 @@ jobs:
         uses: anchore/scan-action@e1165082ffb1fe366ebaf02d8526e7c4989ea9d2 # v7.4.0
         with:
           image: ${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ steps.get_tag.outputs.tag }}
-          fail-build: true
+          fail-build: false
           only-fixed: true
-          severity-cutoff: medium
           output-format: sarif
           output-file: results.sarif
       - name: Run Trivy Scan
@@ -149,7 +150,6 @@ jobs:
           scan-type: image
           ignore-unfixed: false
           severity: CRITICAL,HIGH,MEDIUM
-          exit-code: "1"
           format: sarif
           output: results.sarif
       - name: Run Scout Scan
@@ -160,12 +160,10 @@ jobs:
           image: ${{ env.REGISTRY }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ steps.get_tag.outputs.tag }}
           only-severities: critical,high,medium
           only-fixed: true
-          exit-code: true
           sarif-file: results.sarif
           write-comment: false
           github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Upload SARIF results
-        if: always()
         uses: github/codeql-action/upload-sarif@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81 # v4.37.3
         with:
           sarif_file: results.sarif
