@@ -4,8 +4,6 @@ name: Security
 on:
   push:
     branches: ["main"]
-  pull_request:
-    branches: ["main"]
   merge_group:
 
 env:
@@ -96,7 +94,7 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.event_name == 'pull_request' && github.event.number || github.event_name == 'merge_group' && 'mq' || 'latest' }}
+          tags: ${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.event_name == 'merge_group' && 'mq' || 'latest' }}
           platforms: linux/amd64
           provenance: true
           sbom: true
@@ -118,14 +116,11 @@ jobs:
     permissions:
       contents: read
       security-events: write
-      pull-requests: write
     steps:
       - name: Get image tag
         id: get_tag
         run: |
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            echo "tag=${{ github.event.number }}" >> "$GITHUB_OUTPUT"
-          elif [[ "${{ github.event_name }}" == "merge_group" ]]; then
+          if [[ "${{ github.event_name }}" == "merge_group" ]]; then
             echo "tag=mq" >> "$GITHUB_OUTPUT"
           else
             echo "tag=latest" >> "$GITHUB_OUTPUT"
