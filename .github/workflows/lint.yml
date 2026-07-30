@@ -4,8 +4,7 @@ name: Files
 on:
   push:
     branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+  merge_group:
 
 permissions: 
   read-all
@@ -18,10 +17,6 @@ jobs:
     permissions:
       contents: read
       packages: read
-      # To report GitHub Actions status checks
-      statuses: write
-      # To post pull request review comments
-      pull-requests: write
 
     steps:
       - name: Checkout

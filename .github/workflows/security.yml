@@ -4,8 +4,7 @@ name: Security
 on:
   push:
     branches: ["main"]
-  pull_request:
-    branches: ["main"]
+  merge_group:
 
 env:
   REGISTRY: docker.io
@@ -95,7 +94,7 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.event_name == 'pull_request' && github.event.number || 'latest' }}
+          tags: ${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.event_name == 'merge_group' && 'mq' || 'latest' }}
           platforms: linux/amd64
           provenance: true
           sbom: true
@@ -117,13 +116,12 @@ jobs:
     permissions:
       contents: read
       security-events: write
-      pull-requests: write
     steps:
       - name: Get image tag
         id: get_tag
         run: |
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            echo "tag=${{ github.event.number }}" >> "$GITHUB_OUTPUT"
+          if [[ "${{ github.event_name }}" == "merge_group" ]]; then
+            echo "tag=mq" >> "$GITHUB_OUTPUT"
           else
             echo "tag=latest" >> "$GITHUB_OUTPUT"
           fi
@@ -138,8 +136,9 @@ jobs:
         uses: anchore/scan-action@e1165082ffb1fe366ebaf02d8526e7c4989ea9d2 # v7.4.0
         with:
           image: ${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ steps.get_tag.outputs.tag }}
-          fail-build: false
+          fail-build: true
           only-fixed: true
+          severity-cutoff: medium
           output-format: sarif
           output-file: results.sarif
       - name: Run Trivy Scan
@@ -150,6 +149,7 @@ jobs:
           scan-type: image
           ignore-unfixed: false
           severity: CRITICAL,HIGH,MEDIUM
+          exit-code: "1"
           format: sarif
           output: results.sarif
       - name: Run Scout Scan
@@ -160,100 +160,13 @@ jobs:
           image: ${{ env.REGISTRY }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ steps.get_tag.outputs.tag }}
           only-severities: critical,high,medium
           only-fixed: true
+          exit-code: true
           sarif-file: results.sarif
           write-comment: false
           github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Upload SARIF results
+        if: always()
         uses: github/codeql-action/upload-sarif@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81 # v4.37.3
         with:
           sarif_file: results.sarif
 
-  results:
-    name: Results
-    needs: [semgrep, codeql, container-scan]
-    if: github.event_name == 'pull_request' && always()
-    runs-on: ubuntu-24.04
-    permissions:
-      security-events: read
-      pull-requests: write
-      actions: read
-      checks: read
-    steps:
-      - name: Fetch findings
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
-          PR: ${{ github.event.pull_request.number }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          HEAD_REF: ${{ github.event.pull_request.head.ref }}
-        run: |
-          declare -A tool_counts
-          tools=("Grype" "Trivy" "Docker Scout" "Semgrep PRO" "CodeQL")
-
-          all_alerts="[]"
-          page=1
-          while true; do
-            batch=$(gh api "repos/$REPO/code-scanning/alerts?ref=$HEAD_REF&state=open&per_page=100&page=$page" 2>/dev/null || echo "[]")
-            count=$(echo "$batch" | jq 'length')
-            [[ "$count" -eq 0 ]] && break
-            all_alerts=$(echo "$all_alerts $batch" | jq -s 'add')
-            head_batch=$(echo "$batch" | jq --arg sha "$HEAD_SHA" '[.[] | select(.most_recent_instance.commit_sha == $sha)]')
-            for tool in "${tools[@]}"; do
-              n=$(echo "$head_batch" | jq --arg t "$tool" '[.[] | select(.tool.name | ascii_downcase | contains($t | ascii_downcase))] | length')
-              tool_counts[$tool]=$(( ${tool_counts[$tool]:-0} + n ))
-            done
-            [[ "$count" -lt 100 ]] && break
-            (( page++ )) || true
-          done
-
-          total=0
-          for i in "${!tools[@]}"; do
-            tool="${tools[$i]}"
-            c=${tool_counts[$tool]:-0}
-            total=$(( total + c ))
-          done
-
-          details=$(echo "$all_alerts" | jq -r '.[] | "| \(.most_recent_instance.location.path | ltrimstr("Cube-Link/") | gsub("//"; "/")):\(.most_recent_instance.location.start_line) | \(.rule.description) | \(.rule.security_severity_level // .rule.severity) | \(.tool.name) |"' | grep -v '^$' || true)
-
-          severity_order=("critical" "high" "error" "medium" "warning" "low" "note")
-          highest="none"
-          while IFS= read -r sev; do
-            for s in "${severity_order[@]}"; do
-              if [[ "${sev,,}" == "$s" ]]; then
-                for ranked in "${severity_order[@]}"; do
-                  [[ "$ranked" == "$highest" ]] && break
-                  [[ "$ranked" == "$s" ]] && highest="$s" && break
-                done
-                break
-              fi
-            done
-          done < <(echo "$all_alerts" | jq -r '.[] | (.rule.security_severity_level // .rule.severity)')
-
-          case "$highest" in
-            critical) alert_type="CAUTION" ;;
-            high|error) alert_type="WARNING" ;;
-            medium) alert_type="IMPORTANT" ;;
-            *) alert_type="NOTE" ;;
-          esac
-
-          sep=$'\n'
-          header="## 🔒 Security Findings Summary"
-          summary="> [!${alert_type}]${sep}> **$total** findings, some of which are **$highest** severity."
-          findings_table="| File | Description | Severity | Tool |${sep}|------|-------------|----------|------|${sep}${details}"
-          dropdown="<details><summary>View all findings</summary>${sep}${sep}${findings_table}${sep}${sep}</details>"
-          footer="> Any findings must be fixed or justified, see [repository PR guidance](https://github.com/jackseceng/Cube-Link?tab=contributing-ov-file#making-prs) for details."
-          body="${header}${sep}${sep}${summary}${sep}${sep}${dropdown}${sep}${sep}${footer}"
-
-          existing=$(gh api "repos/$REPO/issues/$PR/comments" \
-            --jq '.[] | select(.body | startswith("## 🔒 Security Findings Summary")) | .id' | head -1 || true)
-          [[ -n "$existing" ]] && gh api -X DELETE "repos/$REPO/issues/comments/$existing" || true
-
-          if [[ "$total" -gt 0 ]]; then
-            echo "$body" > /tmp/comment-body.md
-            gh pr comment "$PR" --repo "$REPO" --body-file /tmp/comment-body.md || true
-          fi
-
-          if [[ "$total" -gt 0 ]]; then
-            echo "::error::$total open security finding(s) found. Any findings must be fixed or justified, see repository PR guidance for details https://github.com/jackseceng/Cube-Link?tab=contributing-ov-file#making-prs"
-            exit 1
-          fi
