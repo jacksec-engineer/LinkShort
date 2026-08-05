@@ -13,6 +13,16 @@ Follow the instructions in the `readme` to test locally on your machine, please 
 - Any issues with testing locally should be raised as a bug on GitHub Issues
 - Any fixes or workarounds for identified bugs should be raised on a relevant GitHub Issue
 
+## Testing PR Changes
+
+If you want to test an open PR's changes without building the container from source, you can pull the pre-built image from DockerHub:
+
+```bash
+PR=<pr-number> docker compose -f docker-compose.pr.yaml up -d
+```
+
+This uses the same local environment configuration (`app/.env`, ports, network) as a regular local build. See the readme for full details.
+
 ## Making PRs
 
 When raising a pull request to this repository, there are several checks that must pass for code quality, security and standardisation reasons.

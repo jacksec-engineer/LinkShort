@@ -97,6 +97,30 @@ CDN="<your-dev-r2-url>"
 > [!CAUTION]
 > The `docker-compose.yaml` and `.env` files must reference the same variable names where applicable, also make sure the variable names are not set elsewhere in your testing environment.
 
+### Testing PR Changes
+
+To test changes from an open pull request without rebuilding the container locally, you can pull the pre-built image from DockerHub. Each PR automatically builds and pushes an image tagged with its PR number.
+
+From the root directory of this repository, run:
+```bash
+PR=<pr-number> docker compose -f docker-compose.pr.yaml up -d
+```
+
+For example, to test PR #597:
+```bash
+PR=597 docker compose -f docker-compose.pr.yaml up -d
+```
+
+This pulls `docker.io/jackseceng/cube-link:597` and runs it with your local `.env` configuration — no build step required.
+
+To shut down:
+```bash
+docker compose -f docker-compose.pr.yaml down
+```
+
+> [!NOTE]
+> You still need the `app/.env` file configured as described in the [Local Environment](#local-environment) section above.
+
 ### Launch Instance
 
 From the root directory of this repository, run:

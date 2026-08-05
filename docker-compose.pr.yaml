@@ -1,0 +1,16 @@
+---
+networks:
+  ls-net:
+    driver: bridge
+
+services:
+  app:
+    image: docker.io/jackseceng/cube-link:${PR}
+    env_file:
+      - app/.env
+    networks:
+      - ls-net
+    ports:
+      - '80:8080'
+    tmpfs:
+      - /tmp:uid=1001,gid=1001,mode=1777
