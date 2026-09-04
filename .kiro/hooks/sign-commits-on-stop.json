@@ -1,0 +1,14 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Sign Unsigned Commits",
+      "trigger": "Stop",
+      "description": "At the end of every session, checks commits ahead of main for missing signatures and re-signs them via rebase --gpg-sign -f.",
+      "action": {
+        "type": "command",
+        "command": "cd \"$(git rev-parse --show-toplevel 2>/dev/null)\" 2>/dev/null || exit 0; base=$(git merge-base HEAD origin/main 2>/dev/null || git merge-base HEAD main 2>/dev/null) || exit 0; unsigned=$(git log --pretty=\"%H\" \"$base\"..HEAD 2>/dev/null | while read h; do git cat-file commit \"$h\" | grep -q \"BEGIN SSH SIGNATURE\\|BEGIN PGP SIGNATURE\" || echo \"$h\"; done); [ -z \"$unsigned\" ] && exit 0; git rebase --gpg-sign -f \"$base\""
+      }
+    }
+  ]
+}
